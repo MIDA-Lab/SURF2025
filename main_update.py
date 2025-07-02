@@ -72,7 +72,7 @@ def get_transform(ds):
     if ds=="ImageNet":
         return transforms.Compose([
         weights = ResNet50_Weights.IMAGENET1K_V2
-        print(weights.meta["mean"], weights.meta["std"])
+        # print(weights.meta["mean"], weights.meta["std"])
         return weights.transforms()
     raise ValueError(ds)
 
