@@ -208,6 +208,14 @@ def main():
                         # query_limit=QUERY_BUDGET
                     )
                     if isinstance(res, str) or res[0] is None:  # Check if res is "NA" string
+                        records.append({
+                            'idx':          idx,
+                            'success':      0,
+                            'queries':      QUERY_BUDGET,
+                            'perturb_l2':   np.nan,
+                            'perturb_linf': np.nan,
+                            'psnr':         np.nan
+                        })
                         continue
                     adv, g_theta, qc = res
                     if isinstance(adv, str):  # Additional check
@@ -242,6 +250,14 @@ def main():
                 else:  # RayS‐Single
                     ret = atk_obj(x, y, query_limit=QUERY_BUDGET)
                     if ret is None:
+                        records.append({
+                            'idx':          idx,
+                            'success':      0,
+                            'queries':      QUERY_BUDGET,
+                            'perturb_l2':   np.nan,
+                            'perturb_linf': np.nan,
+                            'psnr':         np.nan
+                        })
                         continue
                     adv, qc, _, raw_success = ret
                     
