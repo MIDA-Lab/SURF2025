@@ -1,7 +1,7 @@
 from os import linesep
 from pickle import NONE
-from matplotlib import lines
-from matplotlib.pyplot import errorbar, fignum_exists
+# from matpotlib import lines
+# from matplotlib.pyplot import errorbar, fignum_exists
 import numpy as np
 from numpy.core.numeric import indices
 import torch
@@ -45,11 +45,16 @@ def sign(y):
 
 
 class OPT_attack_sign_SGD_lf(object):
-    def __init__(self, model, k=200, train_dataset=None):
+    def __init__(self, model, ds_mean, ds_std, k=200, train_dataset=None):
         self.model = model
         self.k = k
         self.train_dataset = train_dataset
 
+        # Add these two lines:
+        self.ds_mean = torch.tensor(ds_mean).view(1, -1, 1, 1)
+        self.ds_std = torch.tensor(ds_std).view(1, -1, 1, 1)
+
+        
     def attack_untargeted(self, x0, y0, alpha = 0.2, beta = 0.001, iterations = 1000, query_limit=80000,
                           distortion=None, stopping=1e-8):
         """ Attack the original image and return adversarial example
@@ -57,13 +62,19 @@ class OPT_attack_sign_SGD_lf(object):
             train_dataset: set of training data
             (x0, y0): original image
         """
+
+        # # ====== Add this line for reverse standardization ======
+
+        x0 = (x0 * self.ds_std.to(x0.device)) + self.ds_mean.to(x0.device)
+        # now x_i should be \in  [0, 1] \forall i as RayS expects. 
+
         model = self.model
         y0 = y0[0]
         query_count = 0
         ls_total = 0
         
         if (model.predict_label(x0) != y0):
-            logging.info("Fail to classify the image. No need to attack.")
+            print("Fail to classify the image. No need to attack.")
             return x0, 0, True, 0, None
 
         #### init theta by Gaussian: Calculate a good starting point.
@@ -87,19 +98,18 @@ class OPT_attack_sign_SGD_lf(object):
                     init_thetas.append(best_theta)
                     init_g_thetas.append(g_theta)
 
-        logging.info("Best initial distortion: {:.3f}".format(g_theta))
+        print("Best initial distortion: {:.3f}".format(g_theta))
 
         ## fail if cannot find a adv direction within 200 Gaussian
         if g_theta == float('inf'):
-            logging.info("Couldn't find valid initial, failed")
+            print("Couldn't find valid initial, failed")
             return x0, 0, False, query_count, None
 
         for g_theta, best_theta in zip(init_g_thetas, init_thetas): # successful attack upon initialization
             if distortion is None or g_theta < distortion:
                 x_adv = x0 + torch.tensor(g_theta*best_theta, dtype=torch.float).cuda()
                 target = model.predict_label(x_adv)
-                logging.info("\nSucceed: distortion {:.4f} target"
-                    " {:d} queries {:d} LS queries {:d}".format(g_theta, target, query_count, 0))
+                print(f"\nSucceed: distortion {g_theta:.4f} target {target.item()} queries {query_count} LS queries {0}")
                 #return x0 + torch.tensor(x_adv, dtype=torch.float).cuda(), g_theta, True, query_count, best_theta
                 x_adv = x0 + torch.from_numpy(g_theta*best_theta).float().cuda()
                 return x_adv, g_theta, True, query_count, best_theta
@@ -131,7 +141,7 @@ class OPT_attack_sign_SGD_lf(object):
 
                 if alpha < 1e-6:
                     alpha = 1.0
-                    logging.info("Warning: not moving, beta is {0}".format(beta))
+                    print("Warning: not moving, beta is {0}".format(beta))
                     beta = beta * 0.1
                     if (beta < 1e-8):
                         break
@@ -147,18 +157,17 @@ class OPT_attack_sign_SGD_lf(object):
                     break
                 
                 if i % 5 == 0:
-                    logging.info("Iteration {:3d} distortion {:.6f} num_queries {:d}".format(i+1, gg, query_count))
+                    print("Iteration {:3d} distortion {:.6f} num_queries {:d}".format(i+1, gg, query_count))
 
                 if distortion is not None and gg < distortion:
-                    logging.info("Success: required distortion reached")
+                    print("Success: required distortion reached")
                     break
 
             ## check if successful
             if distortion is None or gg < distortion:
                 target = model.predict_label(x0 + torch.tensor(gg*xg, dtype=torch.float).cuda())
-                logging.info('Succeed at init {}'.format(init_id))
-                logging.info("Succeed distortion {:.4f} target"
-                             " {:d} queries {:d} LS queries {:d}\n".format(gg, target, query_count, ls_total))
+                print('Succeed at init {}'.format(init_id))
+                print(f"Succeed distortion {gg:.4f} target {target.item()} queries {query_count:d} LS queries {ls_total:d}\n")
                 return x0 + torch.tensor(gg*xg, dtype=torch.float).cuda(), gg, True, query_count, xg
             
         return x0, 0, False, query_count, xg
@@ -209,7 +218,7 @@ class OPT_attack_sign_SGD_lf(object):
             if sample_type == 'gaussian':
                 u = np.random.randn(*theta.shape)
             else:
-                logging.info('ERROR: UNSUPPORTED SAMPLE_TYPE: {}'.format(sample_type)); exit(1)
+                print('ERROR: UNSUPPORTED SAMPLE_TYPE: {}'.format(sample_type)); exit(1)
             u /= LA.norm(u.flatten(), np.inf)
 
             new_theta = theta + h*u;
