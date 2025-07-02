@@ -281,7 +281,7 @@ def main():
                         x, adv, ds, atk, idx,
                         os.path.join(args.output_dir, f"{ds}_{atk}")
                     )
-
+'''
             # per-image CSV
             df = pd.DataFrame(records)
             out_csv = os.path.join(args.output_dir, f"{ds}_{atk}_10k.csv")
@@ -315,6 +315,17 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(args.output_dir, "attack_success_10k_barplot.png"))
     print("Saved barplot.")
+'''
+            # -------------------------------------------------------------
+            #  END OF PER-IMAGE LOOP
+            # -------------------------------------------------------------
+            df = pd.DataFrame(records,
+                              columns=['idx','success','queries',
+                                       'perturb_l2','perturb_linf','psnr'])
+            out_csv = os.path.join(args.output_dir, f"{ds}_{atk}_10k.csv")
+            df.to_csv(out_csv, index=False)
+            print(f"  → Saved per-image table to {out_csv}")
+            # -------------------------------------------------------------
 
 if __name__=="__main__":
     main()
