@@ -146,7 +146,7 @@ def main():
 
         mean, std = NORM_STATS[ds]
         n_cls = 10 if ds!='ImageNet' else 1000
-        model = GeneralTorchModel(raw_model, n_class=n_cls, im_mean=None, im_std=None)
+        model = GeneralTorchModel(raw_model, n_class=n_cls, im_mean=mean, im_std=std)
 
         idx_file = os.path.join(args.output_dir, f"{ds}_fixed_idx.npy")
         if os.path.exists(idx_file):
@@ -175,15 +175,19 @@ def main():
             cfg = ATTACK_CONFIGS[atk]
             eps = EPSILONS[ds]
 
+            mean, std = NORM_STATS[ds]
+            
             # --------- Attack instantiation ----------
             if atk=='OPT':
+
+                
+                
                 wrapped_model = ModelWrapper(raw_model)  # Add wrapper for OPT,  wrapped_model = ModelWrapper(raw_model)
                 atk_obj = OPT_attack_lf(wrapped_model)
             elif atk=='Sign-OPT':
                 wrapped_model = ModelWrapper(raw_model) # Add wrapper for Sign-OPT, we need use wrapper, wrapped_model = ModelWrapper(raw_model)
                 atk_obj = OPT_attack_sign_SGD_lf(wrapped_model, k=cfg['k'])
             else:  # RayS
-                mean, std = NORM_STATS[ds]
                 atk_obj = RayS(
                     model,
                     ds_mean=mean,
