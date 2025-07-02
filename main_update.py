@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms, models
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import resnet50 #, ResNet50_Weights
 from tqdm import tqdm
 
 # official RayS wrapper + attacker
@@ -92,7 +92,8 @@ def get_raw_model(ds, device):
     if ds=="ImageNet":
         m = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
     else:
-        m = models.resnet50(weights=None, num_classes=10)
+        # m = models.resnet50(weights=None, num_classes=10)
+        m = models.resnet50(num_classes=10)
         m.conv1   = torch.nn.Conv2d(3,64,3,1,1,bias=False)
         m.maxpool = torch.nn.Identity()
         w = f"./weights/{ds.lower()}_resnet50_standard.pth"
@@ -114,7 +115,7 @@ def save_adv_example(x, adv, ds, atk, idx, outdir):
     img = torch.cat([x.squeeze().cpu(), adv.squeeze().cpu()], dim=2)
     img = (img - img.min())/(img.max()-img.min())
     plt.imsave(os.path.join(outdir, f"{ds}_{atk}_ex_{idx}.png"),
-               img.permute(1,2,0))
+               img.permute(1,2,0).cpu().numpy())
 
 def main():
     p = argparse.ArgumentParser(description="Hard-label attacks @10k queries")
@@ -195,8 +196,11 @@ def main():
             print(f"--- {atk} on {ds} @ {QUERY_BUDGET} queries, ε={eps} ---")
             records = []
 
-            for idx,(x,y) in enumerate(tqdm(loader, desc=f"{atk}@{ds}")):
+            # for idx,(x,y) in enumerate(tqdm(loader, desc=f"{atk}@{ds}")):
+            for idx,(x,y) in enumerate(loader):
                 x, y = x.to(DEVICE), y.to(DEVICE)
+
+                print(f"Attacking idx: {idx}")
                 
                 if atk == 'OPT':
                     res = atk_obj.attack_untargeted(
@@ -230,12 +234,26 @@ def main():
                     if ret is None:
                         continue
                     adv, qc, _, raw_success = ret
+
+                    print(f"RayS dist (l_inf norm): {_}")
+                    
                     if adv is None:
                         continue
 
+                if atk == "RayS":
+                    mean, std = NORM_STATS[ds]
+                    mean = torch.tensor(mean).view(1, -1, 1, 1)
+                    std = torch.tensor(std).view(1, -1, 1, 1)
+
+                    # "denomalize" x for adversarial perturbation calculation
+                    x = (x * std.to(x.device)) + mean.to(x.device)
+                    
                 raw_l2, raw_linf = calc_perturbation(x, adv)
                 psnr = calc_psnr(x, adv)
 
+                print(f"computed dist (l_inf norm): {raw_linf}")
+                print(f"computed dist (l_2 norm): {raw_l2}")
+                
                 succ_flag = (
                     bool(raw_success)
                     and (raw_linf <= MAX_LINF)
