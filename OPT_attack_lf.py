@@ -5,10 +5,19 @@ import random
 import torch
 
 class OPT_attack_lf(object):
-    def __init__(self,model):
+    def __init__(self,model, ds_mean, ds_std):
         self.model = model
 
+        # Add these two lines:
+        self.ds_mean = torch.tensor(ds_mean).view(1, -1, 1, 1)
+        self.ds_std = torch.tensor(ds_std).view(1, -1, 1, 1)
+        
     def attack_untargeted(self, x0, y0, alpha = 0.2, beta = 0.01, iterations = 1000):
+
+        # # ====== Add this line for reverse standardization ======
+        x0 = (x0 * self.ds_std.to(x0.device)) + self.ds_mean.to(x0.device)
+        # now x_i should be \in  [0, 1] \forall i as RayS expects. 
+        
         model = self.model
         y0 = y0[0]
         

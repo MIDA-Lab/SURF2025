@@ -179,16 +179,9 @@ def main():
             
             # --------- Attack instantiation ----------
             if atk=='OPT':
-
-                # wrapped
-                
-                wrapped_model = ModelWrapper(raw_model)  # Add wrapper for OPT,  wrapped_model = ModelWrapper(raw_model)
-                # atk_obj = OPT_attack_lf(model)
-                atk_obj = OPT_attack_lf(wrapped_model)
+                atk_obj = OPT_attack_lf(model, ds_mean=mean, ds_std=std)
             elif atk=='Sign-OPT':
-                wrapped_model = ModelWrapper(raw_model) # Add wrapper for Sign-OPT, we need use wrapper, wrapped_model = ModelWrapper(raw_model)
                 atk_obj = OPT_attack_sign_SGD_lf(model, ds_mean=mean, ds_std=std, k=cfg['k'])
-                # atk_obj = OPT_attack_sign_SGD_lf(wrapped_model, ds_mean=mean, ds_std=std, k=cfg['k'])
             else:  # RayS
                 atk_obj = RayS(
                     model,
@@ -214,14 +207,14 @@ def main():
                         alpha=cfg['alpha'],
                         beta=cfg['beta'],
                         iterations=cfg['iterations'],
-                        query_limit=QUERY_BUDGET
+                        # query_limit=QUERY_BUDGET
                     )
                     if isinstance(res, str) or res[0] is None:  # Check if res is "NA" string
                         continue
                     adv, g_theta, qc = res
                     if isinstance(adv, str):  # Additional check
                         continue
-                    raw_success = (raw_model(adv).argmax(1).item() != y.item())
+                    raw_success = (model(adv).argmax(1).item() != y.item())
 
                 elif atk == 'Sign-OPT':
                     res = atk_obj.attack_untargeted(
@@ -235,26 +228,23 @@ def main():
                     if res[0] is None or not res[2]:
                         continue
                     adv, g_theta, success, qc, _ = res
-                    raw_success = (raw_model(adv).argmax(1).item() != y.item())
+                    raw_success = (model(adv).argmax(1).item() != y.item())
 
                 else:  # RayS‐Single
                     ret = atk_obj(x, y, query_limit=QUERY_BUDGET)
                     if ret is None:
                         continue
                     adv, qc, _, raw_success = ret
-
-                    print(f"RayS dist (l_inf norm): {_}")
                     
                     if adv is None:
                         continue
 
-                if atk == "RayS" or atk == "Sign-OPT":
-                    mean, std = NORM_STATS[ds]
-                    mean = torch.tensor(mean).view(1, -1, 1, 1)
-                    std = torch.tensor(std).view(1, -1, 1, 1)
+                mean, std = NORM_STATS[ds]
+                mean = torch.tensor(mean).view(1, -1, 1, 1)
+                std = torch.tensor(std).view(1, -1, 1, 1)
 
-                    # "denomalize" x for adversarial perturbation calculation
-                    x = (x * std.to(x.device)) + mean.to(x.device)
+                # "denomalize" x for adversarial perturbation calculation
+                x = (x * std.to(x.device)) + mean.to(x.device)
                     
                 raw_l2, raw_linf = calc_perturbation(x, adv)
                 psnr = calc_psnr(x, adv)
@@ -304,6 +294,8 @@ def main():
     summary_df.to_csv(summary_csv, index=False)
     print(f"\nSaved summary → {summary_csv}")
 
+    print(summary_df)
+    
     plt.figure(figsize=(8,5))
     for atk in attacks:
         sub = summary_df[summary_df.Attack == atk]
