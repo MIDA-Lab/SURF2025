@@ -32,7 +32,7 @@ EPSILONS = {
     "ImageNet":0.05
 }
 
-MAX_LINF = 0.3  # L∞ ≤ 0.3
+# MAX_LINF = 0.3  # L∞ ≤ 0.3
 
 NORM_STATS = {
     "MNIST":   ([0.1307]*3, [0.3081]*3),
@@ -180,13 +180,15 @@ def main():
             # --------- Attack instantiation ----------
             if atk=='OPT':
 
-                
+                # wrapped
                 
                 wrapped_model = ModelWrapper(raw_model)  # Add wrapper for OPT,  wrapped_model = ModelWrapper(raw_model)
+                # atk_obj = OPT_attack_lf(model)
                 atk_obj = OPT_attack_lf(wrapped_model)
             elif atk=='Sign-OPT':
                 wrapped_model = ModelWrapper(raw_model) # Add wrapper for Sign-OPT, we need use wrapper, wrapped_model = ModelWrapper(raw_model)
-                atk_obj = OPT_attack_sign_SGD_lf(wrapped_model, k=cfg['k'])
+                atk_obj = OPT_attack_sign_SGD_lf(model, ds_mean=mean, ds_std=std, k=cfg['k'])
+                # atk_obj = OPT_attack_sign_SGD_lf(wrapped_model, ds_mean=mean, ds_std=std, k=cfg['k'])
             else:  # RayS
                 atk_obj = RayS(
                     model,
@@ -211,7 +213,8 @@ def main():
                         x, y,
                         alpha=cfg['alpha'],
                         beta=cfg['beta'],
-                        iterations=cfg['iterations']
+                        iterations=cfg['iterations'],
+                        query_limit=QUERY_BUDGET
                     )
                     if isinstance(res, str) or res[0] is None:  # Check if res is "NA" string
                         continue
@@ -226,7 +229,8 @@ def main():
                         alpha=cfg['alpha'],
                         beta=cfg['beta'],
                         iterations=cfg['iterations'],
-                        query_limit=QUERY_BUDGET
+                        query_limit=QUERY_BUDGET,
+                        distortion=eps
                     )
                     if res[0] is None or not res[2]:
                         continue
@@ -244,7 +248,7 @@ def main():
                     if adv is None:
                         continue
 
-                if atk == "RayS":
+                if atk == "RayS" or atk == "Sign-OPT":
                     mean, std = NORM_STATS[ds]
                     mean = torch.tensor(mean).view(1, -1, 1, 1)
                     std = torch.tensor(std).view(1, -1, 1, 1)
@@ -260,7 +264,7 @@ def main():
                 
                 succ_flag = (
                     bool(raw_success)
-                    and (raw_linf <= MAX_LINF)
+                    and (raw_linf <= eps)
                     and (qc <= QUERY_BUDGET)
                 )
 
