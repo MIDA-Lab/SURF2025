@@ -223,8 +223,19 @@ def main():
                         query_limit=QUERY_BUDGET,
                         distortion=eps
                     )
-                    if res[0] is None or not res[2]:
+                    if res[0] is None or not res[2]: # attack failed → still record
+                        records.append({
+                            'idx':          idx,
+                            'success':      0,
+                            'queries':      QUERY_BUDGET,
+                            'perturb_l2':   np.nan,
+                            'perturb_linf': np.nan,
+                            'psnr':         np.nan
+                        })
                         continue
+                    adv, g_theta, success, qc, _ = res
+                    raw_success = (model(adv).argmax(1).item() != y.item())
+                    
                     adv, g_theta, success, qc, _ = res
                     raw_success = (model(adv).argmax(1).item() != y.item())
 
