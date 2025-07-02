@@ -71,11 +71,9 @@ def get_transform(ds):
         ])
     if ds=="ImageNet":
         return transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std),
-        ])
+        weights = ResNet50_Weights.IMAGENET1K_V2
+        print(weights.meta["mean"], weights.meta["std"])
+        return weights.transforms()
     raise ValueError(ds)
 
 def get_dataset(ds):
