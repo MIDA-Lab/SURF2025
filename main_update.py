@@ -2,7 +2,7 @@
 # Runs hard‐label black‐box attacks (OPT, Sign‐OPT, RayS‐Single) on a fixed set of correctly classified test images, using a single 10 000‐query budget, logging per-image distortion & queries, 
 # clamping L∞ ≤ 0.3 for success, and saving all adversarial examples.
 
-# main.py
+# main.py 
 import os
 import math
 import argparse
